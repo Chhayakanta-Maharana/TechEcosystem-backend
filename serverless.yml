@@ -567,8 +567,14 @@ resources:
                 - PUT
                 - POST
                 - DELETE
+                - HEAD
               AllowedHeaders:
                 - '*'
+              ExposeHeaders:
+                - ETag
+                - Content-Type
+                - Content-Length
+              MaxAge: 3000
 
     ResumesBucket:
       Type: AWS::S3::Bucket
@@ -579,6 +585,21 @@ resources:
           BlockPublicPolicy: false
           IgnorePublicAcls: false
           RestrictPublicBuckets: false
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              AllowedHeaders:
+                - '*'
+              ExposeHeaders:
+                - ETag
+              MaxAge: 3000
 
     VideosBucketPolicy:
       Type: AWS::S3::BucketPolicy
