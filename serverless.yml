@@ -1,0 +1,912 @@
+# TechEcosystem API - Complete Backend
+service: techeco-api
+
+# Create an optimized package for our functions
+package:
+  individually: true
+
+plugins:
+  - serverless-bundle # Package our functions with Webpack
+  - serverless-offline
+  - serverless-dotenv-plugin # Load .env as environment variables
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  stage: dev
+  region: us-east-1
+  environment:
+    # Tables
+    usersTable: ${self:service}-users-${self:provider.stage}
+    videosTable: ${self:service}-videos-${self:provider.stage}
+    videoCommentsTable: ${self:service}-video-comments-${self:provider.stage}
+    videoInteractionsTable: ${self:service}-video-interactions-${self:provider.stage}
+    jobsTable: ${self:service}-jobs-${self:provider.stage}
+    resumesTable: ${self:service}-resumes-${self:provider.stage}
+    postsTable: ${self:service}-posts-${self:provider.stage}
+    commentsTable: ${self:service}-comments-${self:provider.stage}
+    likesTable: ${self:service}-likes-${self:provider.stage}
+    followsTable: ${self:service}-follows-${self:provider.stage}
+    applicationsTable: ${self:service}-applications-${self:provider.stage}
+    storiesTable: ${self:service}-stories-${self:provider.stage}
+    # S3 buckets (with account ID for uniqueness)
+    videosBucket: ${self:service}-videos-207710622007-${self:provider.stage}
+    resumesBucket: ${self:service}-resumes-207710622007-${self:provider.stage}
+    # JWT secret
+    jwtSecret: ${env:JWT_SECRET, 'your-secret-key-change-in-production'}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Scan
+        - dynamodb:Query
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:BatchGetItem
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeTable
+      Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/*"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+      Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/*/index/*"
+    - Effect: Allow
+      Action:
+        - s3:GetSignedUrl
+        - s3:PutObject
+        - s3:GetObject
+        - s3:DeleteObject
+        - s3:ListBucket
+      Resource: 
+        - "arn:aws:s3:::${self:provider.environment.videosBucket}/*"
+        - "arn:aws:s3:::${self:provider.environment.videosBucket}"
+        - "arn:aws:s3:::${self:provider.environment.resumesBucket}/*"
+        - "arn:aws:s3:::${self:provider.environment.resumesBucket}"
+
+# AUTH Functions
+functions:
+  register:
+    handler: handlers/auth/register.main
+    events:
+      - http:
+          path: auth/register
+          method: post
+          cors: true
+
+  login:
+    handler: handlers/auth/login.main
+    events:
+      - http:
+          path: auth/login
+          method: post
+          cors: true
+
+  # VIDEO Functions
+  uploadVideo:
+    handler: handlers/videos/upload.main
+    timeout: 30
+    events:
+      - http:
+          path: videos/upload
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getVideo:
+    handler: handlers/videos/get.main
+    events:
+      - http:
+          path: videos/{videoId}
+          method: get
+          cors: true
+
+  listVideos:
+    handler: handlers/videos/list.main
+    events:
+      - http:
+          path: videos
+          method: get
+          cors: true
+
+  updateVideo:
+    handler: handlers/videos/update.main
+    events:
+      - http:
+          path: videos/{videoId}
+          method: put
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  deleteVideo:
+    handler: handlers/videos/delete.main
+    events:
+      - http:
+          path: videos/{videoId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # VIDEO S3 Presigned URL
+  getPresignedUrl:
+    handler: handlers/videos/getPresignedUrl.main
+    events:
+      - http:
+          path: videos/presigned-url
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # VIDEO Views
+  addView:
+    handler: handlers/videos/addView.main
+    events:
+      - http:
+          path: videos/{videoId}/view
+          method: post
+          cors: true
+
+  # VIDEO Comments
+  addVideoComment:
+    handler: handlers/videos/comments/create.main
+    events:
+      - http:
+          path: videos/{videoId}/comments
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getVideoComments:
+    handler: handlers/videos/comments/list.main
+    events:
+      - http:
+          path: videos/{videoId}/comments
+          method: get
+          cors: true
+
+  deleteVideoComment:
+    handler: handlers/videos/comments/delete.main
+    events:
+      - http:
+          path: videos/comments/{commentId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # VIDEO Interactions (Like/Dislike)
+  addVideoInteraction:
+    handler: handlers/videos/interactions/addInteraction.main
+    events:
+      - http:
+          path: videos/{videoId}/interact
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getVideoInteractions:
+    handler: handlers/videos/interactions/getInteractions.main
+    events:
+      - http:
+          path: videos/{videoId}/interactions
+          method: get
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # JOB Functions
+  createJob:
+    handler: handlers/jobs/create.main
+    events:
+      - http:
+          path: jobs
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getJob:
+    handler: handlers/jobs/get.main
+    events:
+      - http:
+          path: jobs/{jobId}
+          method: get
+          cors: true
+
+  listJobs:
+    handler: handlers/jobs/list.main
+    events:
+      - http:
+          path: jobs
+          method: get
+          cors: true
+
+  updateJob:
+    handler: handlers/jobs/update.main
+    events:
+      - http:
+          path: jobs/{jobId}
+          method: put
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  deleteJob:
+    handler: handlers/jobs/delete.main
+    events:
+      - http:
+          path: jobs/{jobId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  applyJob:
+    handler: handlers/jobs/apply.main
+    events:
+      - http:
+          path: jobs/{jobId}/apply
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getJobApplications:
+    handler: handlers/jobs/applications.main
+    events:
+      - http:
+          path: jobs/{jobId}/applications
+          method: get
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  updateApplicationStatus:
+    handler: handlers/jobs/updateApplicationStatus.main
+    events:
+      - http:
+          path: jobs/applications/{applicationId}/status
+          method: put
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # RESUME Functions
+  uploadResume:
+    handler: handlers/resumes/upload.main
+    events:
+      - http:
+          path: resumes
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getResume:
+    handler: handlers/resumes/get.main
+    events:
+      - http:
+          path: resumes/user/{userId}
+          method: get
+          cors: true
+
+  updateResume:
+    handler: handlers/resumes/update.main
+    events:
+      - http:
+          path: resumes/{resumeId}
+          method: put
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  deleteResume:
+    handler: handlers/resumes/delete.main
+    events:
+      - http:
+          path: resumes/{resumeId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # USER Functions
+  getProfile:
+    handler: handlers/users/profile.main
+    events:
+      - http:
+          path: users/{userId}
+          method: get
+          cors: true
+
+  updateProfile:
+    handler: handlers/users/update.main
+    events:
+      - http:
+          path: users/{userId}
+          method: put
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # SOCIAL Functions - Posts
+  createPost:
+    handler: handlers/social/posts/create.main
+    events:
+      - http:
+          path: posts
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getPost:
+    handler: handlers/social/posts/get.main
+    events:
+      - http:
+          path: posts/{postId}
+          method: get
+          cors: true
+
+  listPosts:
+    handler: handlers/social/posts/listAll.main
+    events:
+      - http:
+          path: posts
+          method: get
+          cors: true
+
+  listUserPosts:
+    handler: handlers/social/posts/list.main
+    events:
+      - http:
+          path: posts/user/{userId}
+          method: get
+          cors: true
+
+  updatePost:
+    handler: handlers/social/posts/update.main
+    events:
+      - http:
+          path: posts/{postId}
+          method: put
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  deletePost:
+    handler: handlers/social/posts/delete.main
+    events:
+      - http:
+          path: posts/{postId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # SOCIAL Functions - Likes
+  likePost:
+    handler: handlers/social/likes/create.main
+    events:
+      - http:
+          path: posts/{postId}/like
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  unlikePost:
+    handler: handlers/social/likes/delete.main
+    events:
+      - http:
+          path: posts/{postId}/like
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # SOCIAL Functions - Comments
+  addComment:
+    handler: handlers/social/comments/create.main
+    events:
+      - http:
+          path: posts/{postId}/comments
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  getComments:
+    handler: handlers/social/comments/get.main
+    events:
+      - http:
+          path: posts/{postId}/comments
+          method: get
+          cors: true
+
+  deleteComment:
+    handler: handlers/social/comments/delete.main
+    events:
+      - http:
+          path: comments/{commentId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # SOCIAL Functions - Follows
+  followUser:
+    handler: handlers/social/follows/create.main
+    events:
+      - http:
+          path: users/{userId}/follow
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  unfollowUser:
+    handler: handlers/social/follows/delete.main
+    events:
+      - http:
+          path: users/{userId}/follow
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+  # SOCIAL Functions - Stories
+  createStory:
+    handler: handlers/social/stories/create.main
+    events:
+      - http:
+          path: stories
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  listUserStories:
+    handler: handlers/social/stories/listUser.main
+    events:
+      - http:
+          path: stories/user/{userId}
+          method: get
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  listStories:
+    handler: handlers/social/stories/list.main
+    events:
+      - http:
+          path: stories
+          method: get
+          cors: true
+
+  deleteStory:
+    handler: handlers/social/stories/delete.main
+    events:
+      - http:
+          path: stories/{storyId}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # SOCIAL Functions - Media Upload
+  socialMediaPresignedUrl:
+    handler: handlers/social/media/getPresignedUrl.main
+    events:
+      - http:
+          path: social/media/presigned-url
+          method: post
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  # Authorizer function
+  authorizerFunc:
+    handler: handlers/auth/authorizer.main
+
+resources:   
+  Resources:
+    # ===== S3 BUCKETS =====
+    VideosBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.videosBucket}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+              AllowedHeaders:
+                - '*'
+
+    ResumesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.resumesBucket}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+
+    VideosBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref VideosBucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action: "s3:GetObject"
+              Resource: !Join ["", ["arn:aws:s3:::", !Ref VideosBucket, "/*"]]
+
+    # ===== DYNAMODB TABLES =====
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.usersTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: emailIndex
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    VideosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.videosTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: videoId
+            AttributeType: S
+          - AttributeName: uploadedBy
+            AttributeType: S
+          - AttributeName: uploadedAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: videoId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userVideosIndex
+            KeySchema:
+              - AttributeName: uploadedBy
+                KeyType: HASH
+              - AttributeName: uploadedAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    JobsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.jobsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: jobId
+            AttributeType: S
+          - AttributeName: postedBy
+            AttributeType: S
+          - AttributeName: postedAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: jobId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: postedByIndex
+            KeySchema:
+              - AttributeName: postedBy
+                KeyType: HASH
+              - AttributeName: postedAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    ResumesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.resumesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: resumeId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: resumeId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userResumesIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    PostsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.postsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: postId
+            AttributeType: S
+          - AttributeName: createdBy
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: postId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userPostsIndex
+            KeySchema:
+              - AttributeName: createdBy
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    CommentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.commentsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: commentId
+            AttributeType: S
+          - AttributeName: postId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: commentId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: postCommentsIndex
+            KeySchema:
+              - AttributeName: postId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    LikesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.likesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: likeId
+            AttributeType: S
+          - AttributeName: postId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: likeId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: postLikesIndex
+            KeySchema:
+              - AttributeName: postId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    FollowsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.followsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: followId
+            AttributeType: S
+          - AttributeName: followedBy
+            AttributeType: S
+          - AttributeName: followingId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: followId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: followerIndex
+            KeySchema:
+              - AttributeName: followedBy
+                KeyType: HASH
+              - AttributeName: followingId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    # ===== VIDEO COMMENTS TABLE =====
+    VideoCommentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.videoCommentsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: commentId
+            AttributeType: S
+          - AttributeName: videoId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: commentId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: videoIdIndex
+            KeySchema:
+              - AttributeName: videoId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    # ===== VIDEO INTERACTIONS TABLE (Likes/Dislikes) =====
+    VideoInteractionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.videoInteractionsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: interactionId
+            AttributeType: S
+          - AttributeName: videoId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: interactionId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: videoIdIndex
+            KeySchema:
+              - AttributeName: videoId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: userIdIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    ApplicationsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.applicationsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: applicationId
+            AttributeType: S
+          - AttributeName: jobId
+            AttributeType: S
+          - AttributeName: appliedBy
+            AttributeType: S
+        KeySchema:
+          - AttributeName: applicationId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: jobApplicationsIndex
+            KeySchema:
+              - AttributeName: jobId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: userApplicationsIndex
+            KeySchema:
+              - AttributeName: appliedBy
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    StoriesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.storiesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: storyId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: storyId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userStoriesIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: ApiGatewayRestApi
+
+    GatewayResponseDefault5XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_5XX
+        RestApiId:
+          Ref: ApiGatewayRestApi
