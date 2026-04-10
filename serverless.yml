@@ -570,7 +570,7 @@ resources:
                 - HEAD
               AllowedHeaders:
                 - '*'
-              ExposeHeaders:
+              ExposedHeaders:
                 - ETag
                 - Content-Type
                 - Content-Length
@@ -597,7 +597,7 @@ resources:
                 - HEAD
               AllowedHeaders:
                 - '*'
-              ExposeHeaders:
+              ExposedHeaders:
                 - ETag
               MaxAge: 3000
 
