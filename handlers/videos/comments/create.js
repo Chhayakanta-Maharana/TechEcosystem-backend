@@ -3,8 +3,9 @@ import dynamoDb from "../../../libs/dynamodb-lib";
 import utilLib from "../../../libs/util-lib";
 
 export const main = handler(async (event) => {
-  const { videoId, text } = JSON.parse(event.body);
-  const userId = event.requestContext.authorizer.userId || event.requestContext.authorizer.userId;
+  const videoId = event.pathParameters.videoId;
+  const { text } = JSON.parse(event.body);
+  const userId = event.requestContext.authorizer.userId;
   const userEmail = event.requestContext.authorizer.email;
 
   if (!videoId || !text) {

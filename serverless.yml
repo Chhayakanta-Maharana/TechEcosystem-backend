@@ -28,6 +28,7 @@ provider:
     likesTable: ${self:service}-likes-${self:provider.stage}
     followsTable: ${self:service}-follows-${self:provider.stage}
     applicationsTable: ${self:service}-applications-${self:provider.stage}
+    notificationsTable: ${self:service}-notifications-${self:provider.stage}
     storiesTable: ${self:service}-stories-${self:provider.stage}
     # S3 buckets (with account ID for uniqueness)
     videosBucket: ${self:service}-videos-207710622007-${self:provider.stage}
@@ -167,6 +168,18 @@ functions:
             name: authorizerFunc
             resultTtlInSeconds: 300
 
+  # NOTIFICATIONS
+  listNotifications:
+    handler: handlers/notifications/list.main
+    events:
+      - http:
+          path: notifications
+          method: get
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
   getVideoComments:
     handler: handlers/videos/comments/list.main
     events:
@@ -275,6 +288,17 @@ functions:
     events:
       - http:
           path: jobs/{jobId}/applications
+          method: get
+          cors: true
+          authorizer:
+            name: authorizerFunc
+            resultTtlInSeconds: 300
+
+  listUserApplications:
+    handler: handlers/jobs/listUserApplications.main
+    events:
+      - http:
+          path: jobs/applications/me
           method: get
           cors: true
           authorizer:
@@ -904,6 +928,31 @@ resources:
             KeyType: HASH
         GlobalSecondaryIndexes:
           - IndexName: userStoriesIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    NotificationsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.notificationsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: notificationId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: notificationId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userNotificationsIndex
             KeySchema:
               - AttributeName: userId
                 KeyType: HASH

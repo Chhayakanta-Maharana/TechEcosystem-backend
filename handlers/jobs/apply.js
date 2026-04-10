@@ -42,6 +42,8 @@ export const main = handler(async (event) => {
   const application = {
     applicationId,
     jobId,
+    jobTitle: job.Item.title,
+    company: job.Item.company,
     appliedBy: userId,
     coverLetter: coverLetter || "",
     resumeUrl: resumeUrl || "",

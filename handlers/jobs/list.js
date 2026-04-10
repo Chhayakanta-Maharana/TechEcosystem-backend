@@ -22,9 +22,7 @@ export const main = handler(async (event) => {
     };
   }
 
-  const result = await dynamoDb.scan ?
-    dynamoDb.scan(params) :
-    dynamoDb.query(params);
+  const result = await dynamoDb.scan(params);
 
   return {
     data: result.Items || [],
